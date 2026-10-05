@@ -1,0 +1,18 @@
+# Apple IDE/build
+.DS_Store
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+.build/
+bin/
+obj/
+coverage/
+*.profraw
+*.profdata
+*.xcresult/
+# Private run artifacts
+datasheets/
+*.sqlite-shm
+*.sqlite-wal
+*.bak

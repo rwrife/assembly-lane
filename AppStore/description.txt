@@ -1,0 +1,3 @@
+Assembly Lane is being built as a private, offline companion for hands-on projects. The planned workflow lets you make your own photo or text step cards, keep a count of loose parts, and resume an interrupted build without losing your place. Reversible step history, on-device storage, and user-controlled exports are planned. No account or cloud service is required in the design.
+
+This is proposed store copy for a project in development, not a claim that the app is already available. Always follow your kit manufacturer's assembly and safety instructions; this app does not verify structural safety or identify hardware automatically.
