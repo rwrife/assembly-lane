@@ -128,12 +128,17 @@ simulator_udid="$(python3 Scripts/select_simulator.py \
 echo "platform=iOS Simulator,id=$simulator_udid" > "$artifact_dir/destination.txt"
 
 phase="simulator_boot"
+# First boot of a freshly downloaded runtime runs data migration
+# (00LaunchServicesMigrator). Assembly-lane PR #8 run 37523976017 attempt 2
+# shows bootstatus killed at Migration Elapsed 04:05 while still progressing
+# (Status=2, isTerminal=NO), so a 180 s window can never pass on a fresh
+# runtime. Bound bootstatus at 7 minutes.
 python3 Scripts/boot_simulator.py boot \
   --udid "$simulator_udid" \
   --devices-json "$artifact_dir/simulator-devices.json" \
   --log "$artifact_dir/simulator-boot.log" \
-  --boot-timeout 120 \
-  --bootstatus-timeout 180 \
+  --boot-timeout 180 \
+  --bootstatus-timeout 420 \
   2> >(tee -a "$artifact_dir/simulator-boot.log" >&2)
 
 phase="domain_tests"

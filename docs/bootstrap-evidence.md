@@ -50,10 +50,11 @@ socket vocabulary fails the run. The native-only gate rejects cross-platform/hyb
 manifests and dependencies. A signing-material gitignore probe asserts `*.p8`,
 `*.p12`, `*.mobileprovision`, and `*.cer` cannot be committed.
 
-All simulator subprocesses are bounded (30 s enumeration, 120 s boot, 180 s
-bootstatus) with logs preserved in `build/ci-artifacts`, and the workflow uploads
-artifacts with `if: always()` so failures keep their provenance
-(`provenance.txt` records expected/actual SHA, phase, and exit status).
+All simulator subprocesses are bounded (30 s enumeration, 180 s boot, 420 s
+bootstatus — the wider bootstatus window covers the first boot of a freshly
+downloaded pinned runtime) with logs preserved in `build/ci-artifacts`, and
+the workflow uploads artifacts with `if: always()` so failures keep their
+provenance (`provenance.txt` records expected/actual SHA, phase, and exit status).
 
 ## Verification actually performed (Linux executor, no Swift/Xcode on host)
 
