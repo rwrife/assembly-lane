@@ -143,6 +143,77 @@ class BootTests(unittest.TestCase):
 
         self.assertIn("not ready", self.log_path.read_text())
 
+    def test_retry_tolerates_already_booted_exit_149(self):
+        # Attempt-4 failure class (run 37528690284): bootstatus timed out
+        # mid-migration, shutdown timed out, but the device actually reached
+        # Booted; the forced re-boot exits 149 "Unable to boot device in
+        # current state: Booted". The retry must accept that as booted.
+        stalled = subprocess.TimeoutExpired(
+            ["xcrun", "simctl", "bootstatus", "PHONE-26", "-b"], 420, output=""
+        )
+        already_booted = self.completed(
+            149,
+            "An error was encountered processing the command "
+            "(domain=com.apple.CoreSimulator.SimError, code=405):\n"
+            "Unable to boot device in current state: Booted\n",
+        )
+        runner = FakeRunner(
+            [
+                self.completed(output="boot requested\n"),
+                stalled,
+                self.completed(output="shutdown ok\n"),
+                already_booted,
+                self.completed(output="booted\n"),
+            ]
+        )
+
+        boot_selected_simulator("PHONE-26", devices(), self.log_path, runner=runner)
+
+        log = self.log_path.read_text()
+        self.assertIn("CoreSimulator 405 tolerated on retry", log)
+        verbs = [call[0][2:4] for call in runner.calls]
+        self.assertEqual(verbs[-1], ["bootstatus", "PHONE-26"])
+
+    def test_exit_149_other_state_is_not_tolerated(self):
+        stalled = subprocess.TimeoutExpired(
+            ["xcrun", "simctl", "bootstatus", "PHONE-26", "-b"], 420, output=""
+        )
+        failed = self.completed(
+            149,
+            "An error was encountered processing the command "
+            "(domain=com.apple.CoreSimulator.SimError, code=405):\n"
+            "Unable to boot device in current state: Booting\n",
+        )
+        runner = FakeRunner(
+            [
+                self.completed(output="boot requested\n"),
+                stalled,
+                self.completed(output="shutdown ok\n"),
+                failed,
+            ]
+        )
+
+        with self.assertRaisesRegex(SimulatorBootError, "exited 149"):
+            boot_selected_simulator(
+                "PHONE-26", devices(), self.log_path, runner=runner
+            )
+
+    def test_first_attempt_exit_149_booted_is_not_tolerated(self):
+        # Tolerance applies only to the post-timeout retry; an unexplained
+        # exit 149 on the first attempt stays fatal (fail closed).
+        failed = self.completed(
+            149,
+            "An error was encountered processing the command "
+            "(domain=com.apple.CoreSimulator.SimError, code=405):\n"
+            "Unable to boot device in current state: Booted\n",
+        )
+        runner = FakeRunner([failed])
+
+        with self.assertRaisesRegex(SimulatorBootError, "exited 149"):
+            boot_selected_simulator(
+                "PHONE-26", devices(), self.log_path, runner=runner
+            )
+
 
 class RealSubprocessTests(unittest.TestCase):
     def setUp(self):

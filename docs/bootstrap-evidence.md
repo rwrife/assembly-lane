@@ -55,12 +55,19 @@ bootstatus — the wider bootstatus window covers the first boot of a freshly
 downloaded pinned runtime) with logs preserved in `build/ci-artifacts`, and
 the workflow uploads artifacts with `if: always()` so failures keep their
 provenance (`provenance.txt` records expected/actual SHA, phase, and exit status).
+If bootstatus times out during migration but the simulator actually reaches
+`Booted` while shutdown/re-boot runs, the retry tolerates CoreSimulator 405
+(exit 149 "Unable to boot device in current state: Booted") and proceeds to
+wait for readiness; non-retry or non-Booted exit 149 remains fail-closed.
+In addition, `domain_tests`, `app_build`, and the `device_family_guard` phase
+execute before simulator boot so compilation and plist enforcement run
+unconditionally even if CoreSimulator wedges on a hosted runner.
 
 ## Verification actually performed (Linux executor, no Swift/Xcode on host)
 
-- `python3 -m unittest discover -s Scripts/tests` — 21 helper tests for bounded
-  boot/timeout/exit-code behavior, simulator selection, and exact Xcode pin
-  selection all pass locally.
+- `python3 -m unittest discover -s Scripts/tests` — 33 helper tests for bounded
+  boot/timeout/exit-code behavior, exit 149 already-booted retry tolerance,
+  simulator selection, and exact Xcode pin selection all pass locally.
 - `bash scripts/check_zero_network.sh` — PASS (empty allowlist, no network API usage).
 - `bash scripts/check_native_only.sh` — PASS (no prohibited framework traces).
 - `swift test` for `Packages/AssemblyLaneKit` executed inside Docker (`swift:6.2-noble`),

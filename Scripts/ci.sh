@@ -127,20 +127,8 @@ simulator_udid="$(python3 Scripts/select_simulator.py \
   --devices-json-out "$artifact_dir/simulator-devices.json")"
 echo "platform=iOS Simulator,id=$simulator_udid" > "$artifact_dir/destination.txt"
 
-phase="simulator_boot"
-# First boot of a freshly downloaded runtime runs data migration
-# (00LaunchServicesMigrator). Assembly-lane PR #8 run 37523976017 attempt 2
-# shows bootstatus killed at Migration Elapsed 04:05 while still progressing
-# (Status=2, isTerminal=NO), so a 180 s window can never pass on a fresh
-# runtime. Bound bootstatus at 7 minutes.
-python3 Scripts/boot_simulator.py boot \
-  --udid "$simulator_udid" \
-  --devices-json "$artifact_dir/simulator-devices.json" \
-  --log "$artifact_dir/simulator-boot.log" \
-  --boot-timeout 180 \
-  --bootstatus-timeout 420 \
-  2> >(tee -a "$artifact_dir/simulator-boot.log" >&2)
-
+# Compile and check the app before simulator boot: a wedged hosted CoreSimulator
+# must not hide compiler or built-plist failures.
 phase="domain_tests"
 xcrun swift test \
   --package-path Packages/AssemblyLaneKit \
@@ -151,7 +139,7 @@ xcodebuild build \
   -project AssemblyLane.xcodeproj \
   -scheme AssemblyLane \
   -configuration Debug \
-  -destination "platform=iOS Simulator,id=$simulator_udid" \
+  -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath "$derived_data" \
   -resultBundlePath "$artifact_dir/build.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
@@ -180,6 +168,20 @@ if bundle_id != "com.infinityball.assemblylane":
     raise SystemExit(f"Built app CFBundleIdentifier must be com.infinityball.assemblylane, observed {bundle_id!r}")
 print("Verified built app CFBundleIdentifier == com.infinityball.assemblylane")
 PYTHON
+
+phase="simulator_boot"
+# First boot of a freshly downloaded runtime runs data migration
+# (00LaunchServicesMigrator). Assembly-lane PR #8 run 37523976017 attempt 2
+# shows bootstatus killed at Migration Elapsed 04:05 while still progressing
+# (Status=2, isTerminal=NO), so a 180 s window can never pass on a fresh
+# runtime. Bound bootstatus at 7 minutes.
+python3 Scripts/boot_simulator.py boot \
+  --udid "$simulator_udid" \
+  --devices-json "$artifact_dir/simulator-devices.json" \
+  --log "$artifact_dir/simulator-boot.log" \
+  --boot-timeout 180 \
+  --bootstatus-timeout 420 \
+  2> >(tee -a "$artifact_dir/simulator-boot.log" >&2)
 
 phase="ui_tests"
 xcodebuild test \

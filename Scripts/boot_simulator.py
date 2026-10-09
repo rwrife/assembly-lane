@@ -54,8 +54,11 @@ def run_logged(
             raise SimulatorBootError(message, timed_out=True) from error
         log.write(_text(result.stdout))
         if result.returncode != 0:
+            output_tail = _text(result.stdout).strip()[-400:]
             message = f"{' '.join(command)} exited {result.returncode}"
-            log.write(f"{message}\n")
+            if output_tail:
+                message = f"{message}: {output_tail}"
+            log.write(f"{' '.join(command)} exited {result.returncode}\n")
             raise SimulatorBootError(message)
 
 
@@ -107,20 +110,35 @@ def boot_selected_simulator(
     bootstatus_timeout: int = 180,
     runner: Runner = subprocess.run,
 ) -> None:
-    state = device_state(devices, udid)
-    log_path.write_text(f"Selected {udid}; initial state is {state}\n", encoding="utf-8")
+    initial_state = device_state(devices, udid)
+    log_path.write_text(f"Selected {udid}; initial state is {initial_state}\n", encoding="utf-8")
 
-    def attempt_boot() -> None:
-        if state == "Booted":
+    def attempt_boot(*, allow_already_booted: bool = False) -> None:
+        if initial_state == "Booted":
             with log_path.open("a", encoding="utf-8") as log:
                 log.write("Simulator is already Booted; skipping simctl boot.\n")
         else:
-            run_logged(
-                ["xcrun", "simctl", "boot", udid],
-                boot_timeout,
-                log_path,
-                runner=runner,
-            )
+            try:
+                run_logged(
+                    ["xcrun", "simctl", "boot", udid],
+                    boot_timeout,
+                    log_path,
+                    runner=runner,
+                )
+            except SimulatorBootError as boot_err:
+                # If a previous boot or background migration actually completed
+                # while shutdown/bootstatus was timing out, CoreSimulator exits
+                # 149 with "Unable to boot device in current state: Booted".
+                # On retry, treat this as reaching the Booted state.
+                if (
+                    allow_already_booted
+                    and "exited 149:" in str(boot_err)
+                    and "Unable to boot device in current state: Booted" in str(boot_err)
+                ):
+                    with log_path.open("a", encoding="utf-8") as log:
+                        log.write("Device is already Booted (CoreSimulator 405 tolerated on retry).\n")
+                else:
+                    raise
         run_logged(
             ["xcrun", "simctl", "bootstatus", udid, "-b"],
             bootstatus_timeout,
@@ -129,7 +147,7 @@ def boot_selected_simulator(
         )
 
     try:
-        attempt_boot()
+        attempt_boot(allow_already_booted=False)
     except SimulatorBootError as error:
         # Hosted runners sometimes hand out a simulator whose CoreSimulator
         # boot wedges until the timeout (seat-weave PR #8/#9 measured this
@@ -141,7 +159,7 @@ def boot_selected_simulator(
             log.write("Boot stalled; shutting down and retrying boot once.\n")
         _shutdown_best_effort(udid, log_path, timeout=30, runner=runner)
         try:
-            attempt_boot()
+            attempt_boot(allow_already_booted=True)
         except SimulatorBootError as retry_error:
             if not retry_error.timed_out:
                 raise
