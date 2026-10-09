@@ -1,7 +1,7 @@
 {
   "schema": "tool-lab/toolchain/v1",
   "platform": "ios",
-  "status": "enforced-by-native-ci-when-implemented",
+  "status": "enforced-by-native-ci",
   "xcode_version": "26.0.1",
   "xcode_build": "17A400",
   "iphoneos_sdk": "26.0",

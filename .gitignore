@@ -11,6 +11,16 @@ coverage/
 *.profraw
 *.profdata
 *.xcresult/
+# Python helper-script bytecode (Scripts/)
+__pycache__/
+*.pyc
+# Local signing material (never commit)
+*.p8
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.cer
+asc_private/
 # Private run artifacts
 datasheets/
 *.sqlite-shm
