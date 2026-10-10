@@ -8,9 +8,9 @@ struct AssemblyLaneKitTests {
         #expect(AssemblyLaneKit.domain == "AssemblyLaneKit")
     }
 
-    @Test("milestone marker is set for M0")
+    @Test("milestone marker is set for M1")
     func milestoneMarker() {
-        #expect(AssemblyLaneKit.milestone == "M0-skeleton")
+        #expect(AssemblyLaneKit.milestone == "M1-domain")
     }
 
     @Test("skeleton exposes no stored state beyond constants")
