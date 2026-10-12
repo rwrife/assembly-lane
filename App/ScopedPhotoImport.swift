@@ -88,6 +88,7 @@ private struct StepCamera: UIViewControllerRepresentable {
         Coordinator(didCapture: didCapture, dismiss: dismiss)
     }
 
+    @MainActor
     final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
         let didCapture: (UIImage) -> Void
         let dismiss: DismissAction
