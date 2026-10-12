@@ -123,6 +123,23 @@ public struct Step: Identifiable, Equatable, Hashable, Codable, Sendable {
         self.instructions = instructions
         self.photoAttachmentIDs = photoAttachmentIDs
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, projectId, orderIndex, title, instructions, photoAttachmentIDs
+    }
+
+    /// v1 records predate attachments; missing key migrates to empty IDs.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            projectId: try container.decode(UUID.self, forKey: .projectId),
+            orderIndex: try container.decode(Int.self, forKey: .orderIndex),
+            title: try container.decode(String.self, forKey: .title),
+            instructions: try container.decode(String.self, forKey: .instructions),
+            photoAttachmentIDs: try container.decodeIfPresent([String].self, forKey: .photoAttachmentIDs) ?? []
+        )
+    }
 }
 
 // MARK: - Events

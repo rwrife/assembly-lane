@@ -2,6 +2,8 @@ import AssemblyLaneKit
 import SwiftUI
 
 struct BootstrapHomeView: View {
+    @Environment(StoreModel.self) private var model
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
@@ -26,6 +28,23 @@ struct BootstrapHomeView: View {
                         Text("Domain core milestone: \(AssemblyLaneKit.milestone).")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        if model.loadFailed {
+                            Label(
+                                "Local data could not be opened. Existing files were left untouched.",
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("store.load-failed")
+                        } else if model.store != nil {
+                            Label(
+                                "Local storage ready — \(model.projects.count) saved \(model.projects.count == 1 ? "project" : "projects").",
+                                systemImage: "checkmark.circle"
+                            )
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("store.ready")
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
