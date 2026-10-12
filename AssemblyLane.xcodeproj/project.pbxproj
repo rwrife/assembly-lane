@@ -10,6 +10,7 @@
 		A10000000000000000000102 /* BootstrapHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000202 /* BootstrapHomeView.swift */; };
 		A10000000000000000000103 /* AssemblyLaneLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000203 /* AssemblyLaneLaunchTests.swift */; };
 		A10000000000000000000104 /* AssemblyLaneKit in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000801 /* AssemblyLaneKit */; };
+		A10000000000000000000105 /* ScopedPhotoImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000206 /* ScopedPhotoImport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,6 +29,7 @@
 		A10000000000000000000203 /* AssemblyLaneLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssemblyLaneLaunchTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000204 /* AssemblyLane.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssemblyLane.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000205 /* AssemblyLaneUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AssemblyLaneUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000206 /* ScopedPhotoImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScopedPhotoImport.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +62,7 @@
 			children = (
 				A10000000000000000000201 /* AssemblyLaneApp.swift */,
 				A10000000000000000000202 /* BootstrapHomeView.swift */,
+				A10000000000000000000206 /* ScopedPhotoImport.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -158,6 +161,7 @@
 			files = (
 				A10000000000000000000101 /* AssemblyLaneApp.swift in Sources */,
 				A10000000000000000000102 /* BootstrapHomeView.swift in Sources */,
+				A10000000000000000000105 /* ScopedPhotoImport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -184,6 +188,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Assembly Lane";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take a photo of your own assembly step only when you tap Take step photo.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.1.0;
@@ -204,6 +209,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Assembly Lane";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take a photo of your own assembly step only when you tap Take step photo.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.1.0;
