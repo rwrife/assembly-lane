@@ -47,6 +47,15 @@ final class StoreModel {
         guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             throw CocoaError(.fileReadUnknown)
         }
+        // UI-test journeys use an isolated on-disk store, preserving their
+        // relaunch/resume semantics without touching existing simulator data.
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-ui-testing"),
+           let flag = args.firstIndex(of: "-test-store-id"),
+           args.indices.contains(flag + 1),
+           let id = UUID(uuidString: args[flag + 1]) {
+            return support.appendingPathComponent("LocalStore-\(id.uuidString)", isDirectory: true)
+        }
         return support.appendingPathComponent("LocalStore", isDirectory: true)
     }
 }
