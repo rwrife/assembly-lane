@@ -79,17 +79,23 @@ final class AssemblyLaneSessionTests: XCTestCase {
         // 4. Add parts: one known count (1), one unknown count
         XCTAssertTrue(app.buttons["part.add"].waitForExistence(timeout: 5))
         app.buttons["part.add"].firstMatch.tap()
+        // Toggle BEFORE focusing any text field; the keyboard can cover the
+        // toggle and absorb gestures. Tap the nested switch itself, not the
+        // merged row label, then poll its value.
+        let toggleRow = app.switches["part.count-known"]
+        XCTAssertTrue(toggleRow.waitForExistence(timeout: 5))
+        let innerSwitch = toggleRow.switches.firstMatch.exists ? toggleRow.switches.firstMatch : toggleRow
+        let deadline = Date().addingTimeInterval(5)
+        while !String(describing: innerSwitch.value).contains("1") && Date() < deadline {
+            innerSwitch.tap()
+            usleep(200_000)
+        }
+        let countField = app.textFields["part.count"]
+        XCTAssertTrue(countField.waitForExistence(timeout: 5), "count field proves the toggle flipped")
         let partName = app.textFields["part.name"]
         XCTAssertTrue(partName.waitForExistence(timeout: 5))
         partName.tap()
         partName.typeText("Brass screws")
-        // Flip the count toggle BEFORE focusing the number pad field so the
-        // keyboard never absorbs row gestures.
-        let knownToggle = app.switches["part.count-known"].firstMatch
-        XCTAssertTrue(knownToggle.waitForExistence(timeout: 5))
-        knownToggle.tap()
-        let countField = app.textFields["part.count"]
-        XCTAssertTrue(countField.waitForExistence(timeout: 5), "count field proves the toggle flipped")
         countField.tap()
         countField.typeText("1")
         app.buttons["part.save"].tap()
