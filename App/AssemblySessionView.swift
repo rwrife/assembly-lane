@@ -163,9 +163,9 @@ struct AssemblySessionView: View {
     private func stockText(_ stock: PartStock?) -> String {
         guard let stock else { return "Count unavailable" }
         switch stock.remaining {
-        case .unknown: "Quantity unknown · \(stock.consumed) used"
-        case let .known(remaining): "\(remaining) remaining · \(stock.consumed) used"
-        case let .conflict(expected, consumed): "Count conflict: expected \(expected), used \(consumed)"
+        case .unknown: return "Quantity unknown · \(stock.consumed) used"
+        case let .known(remaining): return "\(remaining) remaining · \(stock.consumed) used"
+        case let .conflict(expected, consumed): return "Count conflict: expected \(expected), used \(consumed)"
         }
     }
 }
