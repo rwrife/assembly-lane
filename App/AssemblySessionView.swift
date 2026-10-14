@@ -3,11 +3,22 @@ import SwiftUI
 
 /// One-thumb session: step controls and parts tray remain ordinary SwiftUI
 /// controls so Dynamic Type, VoiceOver order and reduced motion are native.
+///
+/// Issue #6 seam: the sections below are rendered per
+/// `AssemblyWorkspaceLayout` screen group. Today `current` is one
+/// `.singleScreen` containing `.stepDiagram` and `.controlsTray`, so the
+/// flow is an ordinary one-screen iPhone stack. A future iPhone Duo build
+/// routes `.stepDiagram` to the persistent diagram surface and
+/// `.controlsTray` to the control-deck surface by changing only this
+/// presentation choice — never the event store, and never a fold SDK.
 struct AssemblySessionView: View {
     @Environment(StoreModel.self) private var model
     let projectId: UUID
     @State private var sheet: SessionSheet?
     @State private var errorMessage: String?
+
+    /// Single presentation seam (see AssemblyLaneKit.AssemblyWorkspaceLayout).
+    private let workspace = AssemblyWorkspaceLayout.current
 
     private var record: LocalProjectStore.Record? {
         model.projects.first(where: { $0.project.id == projectId })
@@ -24,26 +35,34 @@ struct AssemblySessionView: View {
                     Button("Edit project", systemImage: "pencil") { sheet = .editProject }
                         .accessibilityIdentifier("project.edit")
                 }
-                Section("Steps") {
-                    if record.steps.isEmpty {
-                        Text("No steps yet. Add one from your manual.")
-                            .foregroundStyle(.secondary)
+                // Present both surfaces in reading order on today's iPhone.
+                // A future Duo presentation splits the same surface content.
+                ForEach(workspace.screens.flatMap { $0 }, id: \.self) { surface in
+                    switch surface {
+                    case .stepDiagram:
+                        Section("Steps") {
+                            if record.steps.isEmpty {
+                                Text("No steps yet. Add one from your manual.")
+                                    .foregroundStyle(.secondary)
+                            }
+                            ForEach(record.steps.sorted(by: {
+                                ($0.orderIndex, $0.id.uuidString) < ($1.orderIndex, $1.id.uuidString)
+                            })) { step in
+                                stepCard(step, record: record, store: store)
+                            }
+                            Button("Add step", systemImage: "plus") { sheet = .addStep }
+                                .accessibilityIdentifier("step.add")
+                        }
+                    case .controlsTray:
+                        Section("Parts tray") {
+                            if record.parts.isEmpty { Text("No parts yet.").foregroundStyle(.secondary) }
+                            ForEach(record.parts) { part in
+                                partRow(part, record: record, store: store)
+                            }
+                            Button("Add part", systemImage: "plus") { sheet = .addPart }
+                                .accessibilityIdentifier("part.add")
+                        }
                     }
-                    ForEach(record.steps.sorted(by: {
-                        ($0.orderIndex, $0.id.uuidString) < ($1.orderIndex, $1.id.uuidString)
-                    })) { step in
-                        stepCard(step, record: record, store: store)
-                    }
-                    Button("Add step", systemImage: "plus") { sheet = .addStep }
-                        .accessibilityIdentifier("step.add")
-                }
-                Section("Parts tray") {
-                    if record.parts.isEmpty { Text("No parts yet.").foregroundStyle(.secondary) }
-                    ForEach(record.parts) { part in
-                        partRow(part, record: record, store: store)
-                    }
-                    Button("Add part", systemImage: "plus") { sheet = .addPart }
-                        .accessibilityIdentifier("part.add")
                 }
             } else {
                 ContentUnavailableView("Project unavailable", systemImage: "exclamationmark.triangle")
