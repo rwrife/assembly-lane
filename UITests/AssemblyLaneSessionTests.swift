@@ -158,6 +158,45 @@ final class AssemblyLaneSessionTests: XCTestCase {
         waitLabel(resumed.staticTexts["part.stock"].firstMatch, containing: "Count conflict")
     }
 
+    /// Issue #6 regression: rotating the iPhone re-lays out the single-screen
+    /// workspace without losing event state (stand-in for fold/unfold
+    /// continuity until a dual-surface device exists). Standard iPhone only.
+    @MainActor
+    func testRotationRetainsStepAndPartState() throws {
+        let app = launchApp()
+        XCTAssertTrue(app.otherElements["bootstrap.home"].waitForExistence(timeout: 10))
+
+        app.buttons["project.new"].tap()
+        let nameField = app.textFields["project.name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.tap()
+        nameField.typeText("Rotation")
+        app.buttons["project.save"].tap()
+        let row = app.buttons["project.row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+
+        app.buttons["step.add"].tap()
+        let stepName = app.textFields["step.name"]
+        XCTAssertTrue(stepName.waitForExistence(timeout: 5))
+        stepName.tap()
+        stepName.typeText("Fasten")
+        app.buttons["step.save"].tap()
+
+        let status = app.staticTexts["step.status"].firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        app.buttons["step.start"].firstMatch.tap()
+        waitLabel(status, containing: "In progress")
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(app.staticTexts["session.manual-notice"].waitForExistence(timeout: 5))
+        waitLabel(app.staticTexts["step.status"].firstMatch, containing: "In progress")
+
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(app.staticTexts["session.manual-notice"].waitForExistence(timeout: 5))
+        waitLabel(app.staticTexts["step.status"].firstMatch, containing: "In progress")
+    }
+
     /// Dynamic Type acceptance: the session stays navigable at the largest
     /// accessibility category (AX5). Existence checks only — at AX5 many
     /// controls are legitimately off-screen and scrolling is exercised in
