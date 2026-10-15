@@ -155,7 +155,42 @@ public final class LocalProjectStore: @unchecked Sendable {
         #endif
     }
 
-    private static func validate(_ value: [Record]) throws {
+    /// Stage a complete workspace on the same volume, then swap directories.
+    /// A failed stage leaves live bytes untouched. A failed final move rolls
+    /// the old root back; never silently discard its only copy.
+    public func replaceAll(
+        _ newRecords: [Record], photos: [(projectId: UUID, id: UUID, bytes: Data)]
+    ) throws {
+        try Self.validate(newRecords)
+        let fm = FileManager.default
+        let token = UUID().uuidString
+        let staging = root.appendingPathExtension("restore-\(token)")
+        let oldRoot = root.appendingPathExtension("previous-\(token)")
+        defer { try? fm.removeItem(at: staging) }
+        let temporary = try LocalProjectStore(root: staging)
+        for record in newRecords { try temporary.save(record) }
+        for photo in photos {
+            guard !photo.bytes.isEmpty else { throw StoreError.invalidImage }
+            let directory = staging.appendingPathComponent(photo.projectId.uuidString, isDirectory: true)
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+            let file = directory.appendingPathComponent(photo.id.uuidString + ".photo")
+            try photo.bytes.write(to: file, options: .atomic)
+            #if os(iOS)
+            try fm.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: file.path)
+            #endif
+        }
+        try fm.moveItem(at: root, to: oldRoot)
+        do { try fm.moveItem(at: staging, to: root) }
+        catch {
+            try fm.moveItem(at: oldRoot, to: root)
+            throw error
+        }
+        records = newRecords
+        // A failed cleanup is recoverable; live records are already durable.
+        try? fm.removeItem(at: oldRoot)
+    }
+
+    static func validate(_ value: [Record]) throws {
         var projectIDs: Set<UUID> = []
         var attachmentIDs: Set<String> = []
         for record in value {
