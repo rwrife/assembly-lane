@@ -13,6 +13,8 @@
 		A10000000000000000000105 /* ScopedPhotoImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000206 /* ScopedPhotoImport.swift */; };
 		A10000000000000000000106 /* AssemblySessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000207 /* AssemblySessionView.swift */; };
 		A10000000000000000000107 /* AssemblyLaneSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000208 /* AssemblyLaneSessionTests.swift */; };
+		A10000000000000000000108 /* WorkspaceTransferView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000209 /* WorkspaceTransferView.swift */; };
+		A10000000000000000000109 /* AssemblyLaneBackupTransferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000210 /* AssemblyLaneBackupTransferTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +36,8 @@
 		A10000000000000000000206 /* ScopedPhotoImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScopedPhotoImport.swift; sourceTree = "<group>"; };
 		A10000000000000000000207 /* AssemblySessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssemblySessionView.swift; sourceTree = "<group>"; };
 		A10000000000000000000208 /* AssemblyLaneSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssemblyLaneSessionTests.swift; sourceTree = "<group>"; };
+		A10000000000000000000209 /* WorkspaceTransferView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTransferView.swift; sourceTree = "<group>"; };
+		A10000000000000000000210 /* AssemblyLaneBackupTransferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssemblyLaneBackupTransferTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,13 +72,14 @@
 				A10000000000000000000202 /* BootstrapHomeView.swift */,
 				A10000000000000000000206 /* ScopedPhotoImport.swift */,
 				A10000000000000000000207 /* AssemblySessionView.swift */,
+				A10000000000000000000209 /* WorkspaceTransferView.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000502 /* UITests */ = {
 			isa = PBXGroup;
-			children = (A10000000000000000000203 /* AssemblyLaneLaunchTests.swift */, A10000000000000000000208 /* AssemblyLaneSessionTests.swift */,);
+			children = (A10000000000000000000203 /* AssemblyLaneLaunchTests.swift */, A10000000000000000000208 /* AssemblyLaneSessionTests.swift */, A10000000000000000000210 /* AssemblyLaneBackupTransferTests.swift */,);
 			path = UITests;
 			sourceTree = "<group>";
 		};
@@ -168,13 +173,14 @@
 				A10000000000000000000102 /* BootstrapHomeView.swift in Sources */,
 				A10000000000000000000105 /* ScopedPhotoImport.swift in Sources */,
 				A10000000000000000000106 /* AssemblySessionView.swift in Sources */,
+				A10000000000000000000108 /* WorkspaceTransferView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A10000000000000000000702 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (A10000000000000000000103 /* AssemblyLaneLaunchTests.swift in Sources */, A10000000000000000000107 /* AssemblyLaneSessionTests.swift in Sources */,);
+			files = (A10000000000000000000103 /* AssemblyLaneLaunchTests.swift in Sources */, A10000000000000000000107 /* AssemblyLaneSessionTests.swift in Sources */, A10000000000000000000109 /* AssemblyLaneBackupTransferTests.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */

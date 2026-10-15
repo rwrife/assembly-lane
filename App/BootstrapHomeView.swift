@@ -37,6 +37,7 @@ struct BootstrapHomeView: View {
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("store.ready")
                     }
+                    WorkspaceTransferView()
                     Section("Projects") {
                         ForEach(model.projects, id: \.project.id) { record in
                             NavigationLink(value: record.project.id) {
