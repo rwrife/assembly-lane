@@ -1,3 +1,7 @@
-Assembly Lane is being built as a private, offline companion for hands-on projects. The planned workflow lets you make your own photo or text step cards, keep a count of loose parts, and resume an interrupted build without losing your place. Reversible step history, on-device storage, and user-controlled exports are planned. No account or cloud service is required in the design.
+Build at your own pace with Assembly Lane, a private, offline iPhone workspace for hands-on projects.
 
-This is proposed store copy for a project in development, not a claim that the app is already available. Always follow your kit manufacturer's assembly and safety instructions; this app does not verify structural safety or identify hardware automatically.
+Create projects with your own text or photo step cards. Count loose parts, track what you use, and mark steps started, completed or reopened. Pick up where you left off with a reversible step history and clear “unknown” counts when a starting quantity was not entered.
+
+Projects and photos stay on your iPhone. Back up or restore your workspace with a previewed JSON file, or share a CSV summary when you choose. No account, ads, analytics or app network requests.
+
+Always follow your kit manufacturer's assembly and safety instructions. Assembly Lane does not identify hardware, verify your work, certify structural safety or determine load limits.

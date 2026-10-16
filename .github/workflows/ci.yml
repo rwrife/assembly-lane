@@ -13,6 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-gate:
+    name: "Release gate (host Python: icon, iPhone-only, listing)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check_release gate
+        run: python3 Scripts/check_release.py
+      - name: check_release helper tests
+        run: python3 -m unittest discover -s Scripts/tests -p 'test_check_release.py' -v
+
   linux-package:
     name: AssemblyLaneKit (Linux swift test)
     runs-on: ubuntu-latest

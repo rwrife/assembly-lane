@@ -57,6 +57,11 @@ bash scripts/check_zero_network.sh 2>&1 | tee "$artifact_dir/zero-network-gate.l
 phase="native_only_gate"
 bash scripts/check_native_only.sh 2>&1 | tee "$artifact_dir/native-only-gate.log"
 
+phase="release_gate"
+# Real generated icon wired into the catalog, iPhone-only, exact bundle id,
+# signed Release config, VERSION/MARKETING_VERSION agreement (issue #7).
+python3 Scripts/check_release.py 2>&1 | tee "$artifact_dir/release-gate.log"
+
 phase="signing_material_gitignore_check"
 # Secret material (ASC_KEY_P8 etc.) must never be committable.
 for f in fake.p8 fake.p12 fake.mobileprovision fake.cer; do
