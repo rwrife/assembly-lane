@@ -216,7 +216,7 @@ jobs:
           set -euo pipefail
           API=https://api.appstoreconnect.apple.com
           JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
-          APP_ID="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+          APP_ID="$(curl -g -sS --fail -H "Authorization: Bearer $JWT" \
             "$API/v1/apps?filter[bundleId]=com.infinityball.assemblylane" \
             | jq -r '.data[0].id // empty')"
           [ -n "$APP_ID" ] || { echo "::error::bundle id com.infinityball.assemblylane not found in App Store Connect"; exit 1; }
@@ -226,7 +226,7 @@ jobs:
           STATE=""
           for i in $(seq 1 45); do
             JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
-            SNAP="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+            SNAP="$(curl -g -sS --fail -H "Authorization: Bearer $JWT" \
               "$API/v1/builds?filter[app]=$APP_ID&sort=-uploadedDate&limit=5")"
             ENTRY="$(echo "$SNAP" | jq -r --arg v "$BUILD_NUMBER" '
               ([.data[] | select(.attributes.version == $v)])
@@ -259,24 +259,24 @@ jobs:
           NOTES="$(git log -1 --format=%s "$GITHUB_SHA" 2>/dev/null || echo "Assembly Lane $VERSION")"
           NOTES="${NOTES//\"/\\\"}"
           JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
-          APP_ID="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+          APP_ID="$(curl -g -sS --fail -H "Authorization: Bearer $JWT" \
             "$API/v1/apps?filter[bundleId]=com.infinityball.assemblylane" | jq -r '.data[0].id')"
           JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
-          GROUP_ID="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+          GROUP_ID="$(curl -g -sS --fail -H "Authorization: Bearer $JWT" \
             "$API/v1/betaGroups?filter[app]=$APP_ID&filter[name]=Internal" | jq -r '.data[0].id // empty')"
           if [ -z "$GROUP_ID" ]; then
             JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
-            GROUP_ID="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+            GROUP_ID="$(curl -g -sS --fail -H "Authorization: Bearer $JWT" \
               -H 'Content-Type: application/json' -X POST "$API/v1/betaGroups" \
               -d "{\"data\":{\"type\":\"betaGroups\",\"attributes\":{\"name\":\"Internal\",\"isInternalGroup\":true},\"relationships\":{\"app\":{\"data\":{\"type\":\"apps\",\"id\":\"$APP_ID\"}}}}}" \
               | jq -r '.data.id')"
           fi
           JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
-          curl -sS --fail -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
+          curl -g -sS --fail -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
             -X POST "$API/v1/builds/$ASC_BUILD_ID/relationships/betaGroups" \
             -d "{\"data\":[{\"type\":\"betaGroups\",\"id\":\"$GROUP_ID\"}]}" > /dev/null
           JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
-          curl -sS --fail -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
+          curl -g -sS --fail -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
             -X POST "$API/v1/betaBuildLocalizations" \
             -d "{\"data\":{\"type\":\"betaBuildLocalizations\",\"attributes\":{\"locale\":\"en-US\",\"whatsNew\":\"$NOTES\"},\"relationships\":{\"build\":{\"data\":{\"type\":\"builds\",\"id\":\"$ASC_BUILD_ID\"}}}}}" > /dev/null
           echo "Build $ASC_BUILD_ID added to Internal group with notes: $NOTES"
