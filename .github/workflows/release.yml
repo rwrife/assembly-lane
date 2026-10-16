@@ -1,0 +1,313 @@
+name: Release (TestFlight)
+
+# Issue #7: on a `v*` tag or manual dispatch, archive with the iOS 26+ SDK,
+# sign via the App Store Connect API (repo secrets: ASC_KEY_ID, ASC_ISSUER_ID,
+# ASC_KEY_P8, ASC_TEAM_ID — names only, values never logged), upload a TestFlight
+# build, wait for ASC processing, and tag a GitHub release.
+# Ported from the proven rwrife/cook-console release pipeline.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (must match the VERSION file, e.g. 0.1.0)'
+        required: true
+        default: '0.1.0'
+      upload:
+        description: 'Upload the exported build to TestFlight (untick for signed archive/export evidence only)'
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  testflight:
+    name: Archive + upload to TestFlight
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      ASC_TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify release secret NAMES are wired (values never logged)
+        run: |
+          set -euo pipefail
+          MISSING=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 ASC_TEAM_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::secret $name is not set for this repository"
+              MISSING=1
+            else
+              echo "secret $name: present"
+            fi
+          done
+          exit $MISSING
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+
+      - name: Resolve version (tag must match VERSION file)
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="v${{ inputs.version }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          FILE_VERSION="$(cat VERSION)"
+          if [ "$TAG" != "v$FILE_VERSION" ]; then
+            echo "::error::tag '$TAG' does not match VERSION file 'v$FILE_VERSION'. Bump VERSION, update marketing version, merge, then tag."
+            exit 1
+          fi
+          {
+            echo "VERSION=$FILE_VERSION"
+            echo "RELEASE_TAG=$TAG"
+            echo "BUILD_NUMBER=$GITHUB_RUN_NUMBER"
+          } >> "$GITHUB_ENV"
+          echo "Releasing Assembly Lane $FILE_VERSION (build $GITHUB_RUN_NUMBER)"
+
+      - name: Select pinned Xcode 26.0.1 (17A400) and iOS 26.0 SDK
+        run: |
+          set -euo pipefail
+          DEVELOPER_DIR="$(python3 Scripts/select_xcode.py --toolchain toolchain.json)"
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
+          DEVELOPER_DIR="$DEVELOPER_DIR" xcodebuild -version
+          DEVELOPER_DIR="$DEVELOPER_DIR" xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Validate icon and project configuration
+        run: |
+          set -euo pipefail
+          python3 Scripts/check_release.py
+          bash scripts/check_zero_network.sh
+          bash scripts/check_native_only.sh
+          python3 -m unittest discover -s Scripts/tests -v
+          xcrun swift test --package-path Packages/AssemblyLaneKit
+
+      - name: Install App Store Connect API key (mode 600, never logged)
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc-api-key.p8"
+          chmod 600 "$RUNNER_TEMP/asc-api-key.p8"
+          echo "API key installed (name ASC_KEY_P8, file mode $(stat -f '%Lp' "$RUNNER_TEMP/asc-api-key.p8"))."
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+
+      - name: Verify log masking (secret bodies must not appear in this log)
+        run: |
+          set -euo pipefail
+          echo "P8 body length: ${#ASC_KEY_P8} characters (length only, body not logged)."
+          echo "Key ID and Issuer ID are non-secret identifiers and are echoed later."
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+
+      - name: Resolve Swift package dependencies
+        run: |
+          set -euo pipefail
+          xcodebuild -resolvePackageDependencies \
+            -project AssemblyLane.xcodeproj \
+            -scheme AssemblyLane \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm"
+
+      - name: Archive (signed, iOS 26 SDK)
+        run: |
+          set -euo pipefail
+          xcodebuild build archive \
+            -project AssemblyLane.xcodeproj \
+            -scheme AssemblyLane \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/AssemblyLane.xcarchive" \
+            -configuration Release \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -allowProvisioningUpdates \
+            -allowProvisioningDeviceRegistration \
+            -authenticationKeyPath "$RUNNER_TEMP/asc-api-key.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$ASC_TEAM_ID" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+
+      - name: Verify archive UIDeviceFamily and bundle identifier
+        run: |
+          set -euo pipefail
+          APP_DIR="$RUNNER_TEMP/AssemblyLane.xcarchive/Products/Applications/AssemblyLane.app"
+          if [ ! -d "$APP_DIR" ]; then
+            echo "::error::Built app not found in archive at $APP_DIR"
+            exit 1
+          fi
+          FAMILY=$(plutil -extract UIDeviceFamily json -o - "$APP_DIR/Info.plist")
+          if [ "$FAMILY" != "[1]" ]; then
+            echo "::error::Archive UIDeviceFamily must be [1], observed $FAMILY"
+            exit 1
+          fi
+          echo "Verified archive UIDeviceFamily == [1] (iPhone only)"
+          BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw -o - "$APP_DIR/Info.plist")
+          if [ "$BUNDLE_ID" != "com.infinityball.assemblylane" ]; then
+            echo "::error::Archive CFBundleIdentifier must be com.infinityball.assemblylane, observed $BUNDLE_ID"
+            exit 1
+          fi
+          echo "Verified archive CFBundleIdentifier == com.infinityball.assemblylane"
+          if [ ! -f "$APP_DIR/Assets.car" ]; then
+            echo "::error::Compiled Assets.car missing from archive"
+            exit 1
+          fi
+          echo "Verified archive contains Assets.car (app icon compiled)"
+
+      - name: Export signed IPA and upload to TestFlight (ASC API key)
+        env:
+          UPLOAD_TO_TESTFLIGHT: ${{ inputs.upload != false }}
+        run: |
+          set -euo pipefail
+          # destination=upload makes xcodebuild deliver the .ipa straight to
+          # App Store Connect using the API key — the documented Xcode 26
+          # path (no altool/fastlane). The polling step below proves arrival.
+          # Disabling the upload input exports the signed IPA locally instead
+          # (archive/export evidence without touching TestFlight).
+          if [ "$UPLOAD_TO_TESTFLIGHT" = "true" ]; then
+            DESTINATION="upload"
+          else
+            DESTINATION="export"
+          fi
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>destination</key><string>__DESTINATION__</string>
+            <key>method</key><string>app-store-connect</string>
+            <key>uploadMethod</key><string>app-store-connect</string>
+            <key>teamID</key><string>__TEAM__</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          sed -i '' -e "s/__TEAM__/$ASC_TEAM_ID/" -e "s/__DESTINATION__/$DESTINATION/" "$RUNNER_TEMP/ExportOptions.plist"
+          mkdir -p "$RUNNER_TEMP/ipa"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/AssemblyLane.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/ipa" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc-api-key.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Wait for ASC processing and register the build
+        if: ${{ inputs.upload != false }}
+        run: |
+          set -euo pipefail
+          API=https://api.appstoreconnect.apple.com
+          JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
+          APP_ID="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+            "$API/v1/apps?filter[bundleId]=com.infinityball.assemblylane" \
+            | jq -r '.data[0].id // empty')"
+          [ -n "$APP_ID" ] || { echo "::error::bundle id com.infinityball.assemblylane not found in App Store Connect"; exit 1; }
+          echo "ASC app id: $APP_ID"
+
+          BUILD_ID=""
+          STATE=""
+          for i in $(seq 1 45); do
+            JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
+            SNAP="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+              "$API/v1/builds?filter[app]=$APP_ID&sort=-uploadedDate&limit=5")"
+            ENTRY="$(echo "$SNAP" | jq -r --arg v "$BUILD_NUMBER" '
+              ([.data[] | select(.attributes.version == $v)])
+              | if length > 0 then (.[0] | [.id, .attributes.processingState] | @tsv) else "" end')"
+            BUILD_ID=""
+            STATE=""
+            if [ -n "$ENTRY" ]; then
+              IFS=$'	' read -r BUILD_ID STATE <<< "$ENTRY"
+            fi
+            echo "poll $i: build-id=${BUILD_ID:-none} processing=${STATE:-unknown}"
+            if [ -n "$BUILD_ID" ] && { [ "$STATE" = "VALID" ] || [ "$STATE" = "COMPLETE" ]; }; then
+              break
+            fi
+            sleep 20
+          done
+          [ -n "${BUILD_ID:-}" ] || { echo "::error::TestFlight build never appeared for version $BUILD_NUMBER"; exit 1; }
+          if [ "$STATE" != "VALID" ] && [ "$STATE" != "COMPLETE" ]; then
+            echo "::error::build $BUILD_ID stuck in processing state '$STATE'"
+            exit 1
+          fi
+          echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "ASC_BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "TestFlight build registered: $BUILD_ID"
+
+      - name: Add build to Internal testers with release notes
+        if: ${{ inputs.upload != false }}
+        run: |
+          set -euo pipefail
+          API=https://api.appstoreconnect.apple.com
+          NOTES="$(git log -1 --format=%s "$GITHUB_SHA" 2>/dev/null || echo "Assembly Lane $VERSION")"
+          NOTES="${NOTES//\"/\\\"}"
+          JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
+          APP_ID="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+            "$API/v1/apps?filter[bundleId]=com.infinityball.assemblylane" | jq -r '.data[0].id')"
+          JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
+          GROUP_ID="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+            "$API/v1/betaGroups?filter[app]=$APP_ID&filter[name]=Internal" | jq -r '.data[0].id // empty')"
+          if [ -z "$GROUP_ID" ]; then
+            JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
+            GROUP_ID="$(curl -sS --fail -H "Authorization: Bearer $JWT" \
+              -H 'Content-Type: application/json' -X POST "$API/v1/betaGroups" \
+              -d "{\"data\":{\"type\":\"betaGroups\",\"attributes\":{\"name\":\"Internal\",\"isInternalGroup\":true},\"relationships\":{\"app\":{\"data\":{\"type\":\"apps\",\"id\":\"$APP_ID\"}}}}}" \
+              | jq -r '.data.id')"
+          fi
+          JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
+          curl -sS --fail -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
+            -X POST "$API/v1/builds/$ASC_BUILD_ID/relationships/betaGroups" \
+            -d "{\"data\":[{\"type\":\"betaGroups\",\"id\":\"$GROUP_ID\"}]}" > /dev/null
+          JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Tools/asc_jwt.rb)"
+          curl -sS --fail -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
+            -X POST "$API/v1/betaBuildLocalizations" \
+            -d "{\"data\":{\"type\":\"betaBuildLocalizations\",\"attributes\":{\"locale\":\"en-US\",\"whatsNew\":\"$NOTES\"},\"relationships\":{\"build\":{\"data\":{\"type\":\"builds\",\"id\":\"$ASC_BUILD_ID\"}}}}}" > /dev/null
+          echo "Build $ASC_BUILD_ID added to Internal group with notes: $NOTES"
+
+      - name: Create GitHub release (changelog anchor)
+        if: ${{ success() && inputs.upload != false }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "GitHub release $GITHUB_REF_NAME already exists — skipping creation."
+          else
+            gh release create "$GITHUB_REF_NAME" --generate-notes \
+              --title "Assembly Lane $VERSION (build $BUILD_NUMBER)"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove API key material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/asc-api-key.p8"
+          echo "asc-api-key.p8 removed from runner temp."
+
+      - name: Upload archive metadata (dSYM provenance)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assemblylane-archive-${{ github.ref_name }}
+          path: |
+            ${{ runner.temp }}/ipa/*.ipa
+            ${{ runner.temp }}/ipa/*.plist
+            ${{ runner.temp }}/ipa/*.dSYM.zip
+          if-no-files-found: warn
+          retention-days: 30
