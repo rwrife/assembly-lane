@@ -32,7 +32,8 @@ jobs:
   testflight:
     name: Archive + upload to TestFlight
     runs-on: macos-26
-    timeout-minutes: 45
+    # 70 = 45-minute archive ceiling + bounded 20-minute platform download.
+    timeout-minutes: 70
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -88,6 +89,28 @@ jobs:
           echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
           DEVELOPER_DIR="$DEVELOPER_DIR" xcodebuild -version
           DEVELOPER_DIR="$DEVELOPER_DIR" xcrun --sdk iphoneos --show-sdk-version
+
+      # v0.1.0 run 38968951365: pinned Xcode 26.0.1 was present and its SDK
+      # listed, but the iOS 26.0 platform was absent on the host, so archive
+      # died pre-compile with "iOS 26.0 is not installed" (exit 70). The
+      # platform download is a separate component; assert + warm it here.
+      - name: Ensure the iOS 26.0 platform is installed for the pinned Xcode
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          # Existing exact-ID verifier rejects unavailable or prefix-match runtimes.
+          python3 Scripts/check_runtime.py capture --runtimes-json "$RUNNER_TEMP/runtimes.json" || true
+          if python3 Scripts/check_runtime.py check --runtimes-json "$RUNNER_TEMP/runtimes.json"; then
+            echo 'Pinned iOS platform already installed.'
+          else
+            echo 'Pinned iOS platform missing on runner — downloading (bounded to 20 min)...'
+            xcodebuild -downloadPlatform iOS -architectureVariant universal
+            python3 Scripts/check_runtime.py capture --runtimes-json "$RUNNER_TEMP/runtimes.json"
+            python3 Scripts/check_runtime.py check --runtimes-json "$RUNNER_TEMP/runtimes.json" || {
+              echo '::error::Pinned iOS platform unavailable after download — acceptance blocker, do not substitute toolchains.'
+              exit 1
+            }
+          fi
 
       - name: Validate icon and project configuration
         run: |

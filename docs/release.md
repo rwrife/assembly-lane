@@ -50,7 +50,9 @@ signed archive (Xcode 26 single-size icons do not write `CFBundleIconName`).
 2. `git tag v$VERSION && git push origin v$VERSION` (or dispatch
    `Release (TestFlight)` with the matching version input).
 3. Watch `Actions → Release (TestFlight)`: pinned Xcode 26.0.1 selection →
-   gates → signed archive (asserts archive `UIDeviceFamily == [1]`,
+   exact iOS 26.0 platform assert (bounded `xcodebuild -downloadPlatform iOS`
+   if the runner image lacks it) → gates → signed archive (asserts archive
+   `UIDeviceFamily == [1]`,
    `CFBundleIdentifier == com.infinityball.assemblylane`, `Assets.car`
    present) → export `method=app-store-connect`, `destination=upload` →
    ASC polling until `VALID`/`COMPLETE` → build attached to the **Internal**
@@ -64,6 +66,8 @@ signed archive (Xcode 26 single-size icons do not write `CFBundleIconName`).
       TestFlight build; tag pushes always upload).
 - [x] Real model-generated icon wired + machine-verified (`check_release.py`
       PASS locally on the exact committed bytes).
-- [ ] First signed archive + TestFlight upload: runs on the first `v*` tag
-      after this lands on `main`. No TestFlight build has been produced yet;
-      the issue stays open until that upload evidence exists.
+- [ ] First signed archive + TestFlight upload: v0.1.0 release run
+      38968951365 reproduced the missing iOS 26.0 platform runtime on macos-26
+      runners (exit 70, destination resolution pre-compile). Added explicit
+      downloadPlatform step in PR for v0.1.1. No TestFlight build registered
+      yet; issue stays open until release workflow completes green.
