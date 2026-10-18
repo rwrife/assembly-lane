@@ -80,6 +80,8 @@ jobs:
             echo "RELEASE_TAG=$TAG"
             echo "BUILD_NUMBER=$GITHUB_RUN_NUMBER"
           } >> "$GITHUB_ENV"
+          # Manual dispatch runs on a branch: release steps must use RELEASE_TAG,
+          # not GITHUB_REF_NAME.
           echo "Releasing Assembly Lane $FILE_VERSION (build $GITHUB_RUN_NUMBER)"
 
       - name: Select pinned Xcode 26.0.1 (17A400) and iOS 26.0 SDK
@@ -308,12 +310,15 @@ jobs:
         if: ${{ success() && inputs.upload != false }}
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "GitHub release $GITHUB_REF_NAME already exists — skipping creation."
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "GitHub release $RELEASE_TAG already exists — skipping creation."
           else
-            gh release create "$GITHUB_REF_NAME" --generate-notes \
+            gh release create "$RELEASE_TAG" --generate-notes \
+              --target "$GITHUB_SHA" \
               --title "Assembly Lane $VERSION (build $BUILD_NUMBER)"
           fi
+          [ "$(gh release view "$RELEASE_TAG" --json tagName --jq .tagName)" = "$RELEASE_TAG" ]
+          echo "Verified GitHub release $RELEASE_TAG"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
