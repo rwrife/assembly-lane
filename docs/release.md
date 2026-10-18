@@ -66,8 +66,19 @@ signed archive (Xcode 26 single-size icons do not write `CFBundleIconName`).
       TestFlight build; tag pushes always upload).
 - [x] Real model-generated icon wired + machine-verified (`check_release.py`
       PASS locally on the exact committed bytes).
-- [ ] First signed archive + TestFlight upload: v0.1.0 release run
-      38968951365 reproduced the missing iOS 26.0 platform runtime on macos-26
-      runners (exit 70, destination resolution pre-compile). Added explicit
-      downloadPlatform step in PR for v0.1.1. No TestFlight build registered
-      yet; issue stays open until release workflow completes green.
+- [ ] First signed archive + TestFlight upload:
+      * v0.1.0 run 38968951365 reproduced the missing iOS 26.0 platform on
+        hosted macos-26 runners (preflight downloadPlatform step added in PR #15).
+      * v0.1.1 run 39066762918 passed the platform download, configured Release,
+        and reached the archive signing step. Failed with two external blockers:
+        1. **Apple Developer cert cap**: team has 12 active Development certs
+           ("Choose a certificate to revoke. Your account has reached the
+           maximum number of certificates"). Xcode automatic signing via the
+           API key requires a cert slot to generate/update profiles.
+        2. **ASC app record missing**: `DC937P3T46` bundle ID is registered in
+           the developer account, but no App record exists in App Store Connect
+           yet (`apps?filter[bundleId]=com.infinityball.assemblylane` returns empty).
+           Required before the TestFlight processing poller can register builds.
+      * Issue #7 remains open until a release run signs the archive and registers
+        a TestFlight build. Dispatch workflow step points to `$RELEASE_TAG`
+        (not `$GITHUB_REF_NAME`), anchoring manual releases to the version tag.
